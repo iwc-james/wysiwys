@@ -130,3 +130,14 @@ composer install
 composer test     # tests Pest
 composer serve    # page de démo (Orchestra Testbench) sur http://127.0.0.1:8000
 ```
+
+## Vibe coded with love
+
+Ce package a été entièrement « vibe codé » avec [Claude Code](https://claude.com/claude-code), l'outil de programmation agentique d'[Anthropic](https://www.anthropic.com), qui s'appuie sur les modèles [Claude](https://www.anthropic.com/claude). Le code a été écrit par l'IA à partir de mes instructions, puis testé et relu par moi.
+
+Concrètement, ça veut dire :
+
+- le code n'a pas fait l'objet d'un audit de sécurité indépendant ; la partie nettoyage du HTML est couverte par des tests, mais relisez-la avant de l'utiliser avec du contenu non fiable ;
+- des bugs ou des choix discutables sont possibles : les retours et les *issues* sont les bienvenus.
+
+Les commits écrits avec l'assistance de Claude portent la mention `Co-Authored-By`.
