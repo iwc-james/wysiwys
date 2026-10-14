@@ -6,7 +6,7 @@ it('garde le HTML produit par l’éditeur', function () {
     $html = '<h2>Titre</h2><p style="text-align: center;"><strong>gras</strong> <em>ital</em> '
         .'<span style="color: rgb(220, 38, 38);">rouge</span></p><ul><li>un</li></ul><hr>'
         .'<p style="margin-left: 4em;"><a href="https://exemple.fr" target="_blank" rel="noopener noreferrer">lien</a></p>'
-        .'<img src="/storage/wysiwys/a.png" alt="A">';
+        .'<img src="/storage/wysiwys/a.png" alt="A"><p><img src="/storage/wysiwys/b.png" alt="" width="320"></p>';
 
     expect(Sanitizer::clean($html))->toBe($html);
 });

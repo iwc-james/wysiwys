@@ -159,6 +159,63 @@
 .wysiwys-content hr { margin: 1.4em 0; border: 0; border-top: 1px solid var(--wysiwys-border, #d6dbe1); }
 .wysiwys-content img { max-width: 100%; height: auto; }
 
+/* ----- Redimensionnement des images ----- */
+
+.wysiwys-editable img {
+    cursor: pointer;
+}
+
+/* Le cadre remplace le surlignage bleu du navigateur. */
+.wysiwys.is-image-selected .wysiwys-editable ::selection,
+.wysiwys.is-image-selected .wysiwys-editable::selection {
+    background: transparent;
+}
+
+.wysiwys-image-frame {
+    position: absolute;
+    z-index: 1; /* sous la barre d'outils collante */
+    border: 1px solid var(--wysiwys-accent);
+    pointer-events: none;
+}
+
+.wysiwys-image-frame[hidden] {
+    display: none;
+}
+
+.wysiwys-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--wysiwys-accent);
+    border: 1px solid var(--wysiwys-bg);
+    pointer-events: auto;
+    touch-action: none;
+}
+
+.wysiwys-handle.is-nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.wysiwys-handle.is-ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.wysiwys-handle.is-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.wysiwys-handle.is-se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+.wysiwys-image-size {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(15, 23, 42, .75);
+    color: #fff;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .15s;
+}
+
+.wysiwys-image-frame.is-resizing .wysiwys-image-size {
+    opacity: 1;
+}
+
 /* ----- Plein écran ----- */
 
 .wysiwys.is-fullscreen {

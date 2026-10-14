@@ -249,6 +249,7 @@
 
         this.container.insertBefore(this.toolbar, this.source);
         this.container.insertBefore(this.editable, this.source);
+        this.buildImageFrame();
     };
 
     Editor.prototype.buildBlockSelect = function () {
@@ -279,11 +280,36 @@
             self.exec('formatBlock', '<' + self.blockSelect.value + '>');
         });
 
-        this.editable.addEventListener('input', function () { self.sync(); });
+        this.editable.addEventListener('input', function () {
+            self.sync();
+            self.positionImageFrame();
+        });
         this.editable.addEventListener('keyup', function () { self.refreshState(); });
         this.editable.addEventListener('mouseup', function () { self.refreshState(); });
 
+        // Firefox : désactiver ses poignées natives au profit des nôtres.
+        try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) { /* ignoré */ }
+
+        this.editable.addEventListener('click', function (e) {
+            if (e.target.tagName === 'IMG') self.selectImage(e.target);
+        });
+        this.editable.addEventListener('scroll', function () { self.positionImageFrame(); });
+        window.addEventListener('resize', function () { self.positionImageFrame(); });
+        if (window.ResizeObserver) {
+            new ResizeObserver(function () { self.positionImageFrame(); }).observe(this.editable);
+        }
+
         this.editable.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && self.image) {
+                e.stopPropagation();
+                var range = document.createRange();
+                range.setStartAfter(self.image);
+                range.collapse(true);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                self.deselectImage();
+                return;
+            }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 self.openLinkDialog();
@@ -300,8 +326,17 @@
         document.addEventListener('selectionchange', function () {
             var selection = window.getSelection();
             if (selection.rangeCount && self.editable.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-                self.range = selection.getRangeAt(0).cloneRange();
+                var range = selection.getRangeAt(0);
+                self.range = range.cloneRange();
+                // La sélection a quitté l'image (flèches, clic dans le texte…).
+                if (self.image && (range.collapsed || !range.intersectsNode(self.image))) {
+                    self.deselectImage();
+                }
             }
+        });
+
+        document.addEventListener('mousedown', function (e) {
+            if (self.image && !self.container.contains(e.target)) self.deselectImage();
         });
 
         var form = this.container.closest('form');
@@ -323,6 +358,7 @@
     /* ----- Contenu ----- */
 
     Editor.prototype.setHtml = function (html) {
+        this.deselectImage();
         this.editable.innerHTML = clean(html);
         this.sync();
     };
@@ -751,6 +787,117 @@
         });
         cancel.addEventListener('click', function () { dialog.close(); });
         ok.addEventListener('click', insert);
+    };
+
+    /* ----- Redimensionnement des images ----- */
+
+    var HANDLES = ['nw', 'ne', 'sw', 'se'];
+    var MIN_IMAGE_WIDTH = 24;
+
+    Editor.prototype.buildImageFrame = function () {
+        var self = this;
+        var frame = el('div', { 'class': 'wysiwys-image-frame', hidden: '' });
+        this.imageSize = el('span', { 'class': 'wysiwys-image-size' });
+        frame.appendChild(this.imageSize);
+
+        HANDLES.forEach(function (corner) {
+            var handle = el('span', {
+                'class': 'wysiwys-handle is-' + corner,
+                title: 'Glisser pour redimensionner, double-clic pour la taille d’origine'
+            });
+            handle.addEventListener('pointerdown', function (e) { self.startImageResize(e, corner); });
+            handle.addEventListener('dblclick', function () { self.resetImageSize(); });
+            frame.appendChild(handle);
+        });
+
+        // Ne pas faire perdre le focus (et la sélection) à l'éditeur.
+        frame.addEventListener('mousedown', function (e) { e.preventDefault(); });
+
+        this.container.appendChild(frame);
+        this.imageFrame = frame;
+    };
+
+    Editor.prototype.selectImage = function (img) {
+        this.image = img;
+        var range = document.createRange();
+        range.selectNode(img);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        this.range = range.cloneRange();
+        this.container.classList.add('is-image-selected');
+        this.imageFrame.hidden = false;
+        this.positionImageFrame();
+    };
+
+    Editor.prototype.deselectImage = function () {
+        if (!this.image) return;
+        this.image = null;
+        this.container.classList.remove('is-image-selected');
+        this.imageFrame.hidden = true;
+        this.imageFrame.classList.remove('is-resizing');
+    };
+
+    Editor.prototype.positionImageFrame = function () {
+        if (!this.image) return;
+        if (!this.editable.contains(this.image)) {
+            this.deselectImage();
+            return;
+        }
+        var box = this.container.getBoundingClientRect();
+        var rect = this.image.getBoundingClientRect();
+        var style = this.imageFrame.style;
+        style.left = (rect.left - box.left - this.container.clientLeft) + 'px';
+        style.top = (rect.top - box.top - this.container.clientTop) + 'px';
+        style.width = rect.width + 'px';
+        style.height = rect.height + 'px';
+        this.imageSize.textContent = Math.round(rect.width) + ' × ' + Math.round(rect.height);
+    };
+
+    Editor.prototype.startImageResize = function (e, corner) {
+        if (!this.image || e.button !== 0) return;
+        e.preventDefault();
+
+        var self = this;
+        var img = this.image;
+        var handle = e.currentTarget;
+        var startX = e.clientX;
+        var startWidth = img.getBoundingClientRect().width;
+        var block = closest(img.parentNode, 'p,h1,h2,h3,h4,h5,h6,blockquote,div,li', this.editable) || this.editable;
+        var blockStyle = getComputedStyle(block);
+        var maxWidth = block.clientWidth - parseFloat(blockStyle.paddingLeft) - parseFloat(blockStyle.paddingRight);
+        // Une image centrée grandit des deux côtés : le pointeur ne parcourt que la moitié du chemin.
+        var factor = (corner === 'ne' || corner === 'se' ? 1 : -1) * (blockStyle.textAlign === 'center' ? 2 : 1);
+
+        img.removeAttribute('height');
+        handle.setPointerCapture(e.pointerId);
+        this.imageFrame.classList.add('is-resizing');
+
+        function move(event) {
+            var width = Math.round(startWidth + (event.clientX - startX) * factor);
+            img.setAttribute('width', Math.max(MIN_IMAGE_WIDTH, Math.min(maxWidth, width)));
+            self.positionImageFrame();
+        }
+
+        function stop() {
+            handle.removeEventListener('pointermove', move);
+            handle.removeEventListener('pointerup', stop);
+            handle.removeEventListener('pointercancel', stop);
+            self.imageFrame.classList.remove('is-resizing');
+            self.sync();
+        }
+
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', stop);
+        handle.addEventListener('pointercancel', stop);
+    };
+
+    Editor.prototype.resetImageSize = function () {
+        if (!this.image) return;
+        this.image.removeAttribute('width');
+        this.image.removeAttribute('height');
+        this.positionImageFrame();
+        this.sync();
     };
 
     /* ----- Collage et glisser-déposer ----- */

@@ -6,6 +6,7 @@
 - Listes à puces / numérotées, alignements, retraits
 - Liens (ajout, modification, suppression), séparateur, couleur du texte
 - Images : envoi depuis l'ordinateur, choix parmi les images du serveur, collage et glisser-déposer
+- Redimensionnement des images à la souris via des poignées d'angle (double-clic sur une poignée : taille d'origine)
 - Plein écran, aperçu
 - Les images sont écrites **directement dans `public/`** : pas besoin de `php artisan storage:link`
 
