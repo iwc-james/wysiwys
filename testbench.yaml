@@ -1,0 +1,14 @@
+providers:
+  - IwcJames\Wysiwys\WysiwysServiceProvider
+  - Workbench\App\Providers\WorkbenchServiceProvider
+
+env:
+  - APP_KEY=base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
+  - APP_DEBUG=true
+  - SESSION_DRIVER=file
+
+workbench:
+  start: /
+  discovers:
+    web: true
+    views: true
