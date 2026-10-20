@@ -158,6 +158,7 @@
 .wysiwys-content a { color: var(--wysiwys-accent, #2563eb); text-decoration: underline; }
 .wysiwys-content hr { margin: 1.4em 0; border: 0; border-top: 1px solid var(--wysiwys-border, #d6dbe1); }
 .wysiwys-content img { max-width: 100%; height: auto; }
+.wysiwys-content { display: flow-root; } /* contient les images flottantes */
 
 /* ----- Redimensionnement des images ----- */
 
@@ -214,6 +215,79 @@
 
 .wysiwys-image-frame.is-resizing .wysiwys-image-size {
     opacity: 1;
+}
+
+/* ----- Barre contextuelle des images ----- */
+
+.wysiwys-image-toolbar {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    padding: 4px;
+    border: 1px solid var(--wysiwys-border);
+    border-radius: var(--wysiwys-radius);
+    background: var(--wysiwys-bg);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .12);
+}
+
+.wysiwys-image-toolbar[hidden],
+.wysiwys-image-toolbar [hidden] {
+    display: none;
+}
+
+.wysiwys-image-frame.is-resizing + .wysiwys-image-toolbar {
+    visibility: hidden;
+}
+
+.wysiwys-image-view,
+.wysiwys-image-alt {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.wysiwys-image-sep {
+    width: 1px;
+    height: 20px;
+    margin: 0 4px;
+    background: var(--wysiwys-border);
+}
+
+.wysiwys-alt-btn {
+    width: auto;
+    padding: 0 6px;
+    font: 700 11px/1 system-ui, sans-serif;
+    letter-spacing: .04em;
+}
+
+/* Rappel discret : une image sans texte alternatif. */
+.wysiwys-alt-btn.is-missing::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--wysiwys-error);
+}
+
+.wysiwys-alt-input {
+    width: 240px;
+    max-width: 50vw;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--wysiwys-border);
+    border-radius: 4px;
+    background: var(--wysiwys-bg);
+    color: var(--wysiwys-text);
+    font: inherit;
+    font-size: 14px;
+}
+
+.wysiwys-alt-input:focus {
+    outline: 2px solid var(--wysiwys-accent);
+    outline-offset: -1px;
 }
 
 /* ----- Plein écran ----- */

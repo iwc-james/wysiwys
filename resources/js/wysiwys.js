@@ -31,7 +31,12 @@
         preview: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
         fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
         exitFullscreen: '<path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/>',
-        close: '<path d="M18 6 6 18M6 6l12 12"/>'
+        close: '<path d="M18 6 6 18M6 6l12 12"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        imageInline: '<rect width="10" height="8" x="7" y="8" rx="1"/><path d="M3 4h18M3 20h18M3 12h1M20 12h1"/>',
+        imageLeft: '<rect width="9" height="9" x="3" y="4" rx="1"/><path d="M16 5h5M16 12h5M3 19h18"/>',
+        imageCenter: '<rect width="10" height="9" x="7" y="4" rx="1"/><path d="M3 19h18"/>',
+        imageRight: '<rect width="9" height="9" x="12" y="4" rx="1"/><path d="M3 5h5M3 12h5M3 19h18"/>'
     };
 
     function icon(name) {
@@ -93,7 +98,11 @@
         'text-align': /^(left|center|right|justify)$/,
         'color': /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.%\s,\/]+\)|[a-z]+)$/,
         'margin-left': /^\d+(\.\d+)?(px|em|rem)$/,
-        'padding-left': /^\d+(\.\d+)?(px|em|rem)$/
+        'padding-left': /^\d+(\.\d+)?(px|em|rem)$/,
+        // Alignement des images (habillage ou centrage).
+        'float': /^(left|right)$/,
+        'display': /^block$/,
+        'margin': /^(\d+(\.\d+)?(px|em|rem)?|auto)( (\d+(\.\d+)?(px|em|rem)?|auto)){0,3}$/
     };
 
     function cleanUrl(url, schemes) {
@@ -815,6 +824,151 @@
 
         this.container.appendChild(frame);
         this.imageFrame = frame;
+        this.buildImageToolbar();
+    };
+
+    /* ----- Barre contextuelle des images (alignement, texte alternatif) ----- */
+
+    // Styles inline : le HTML produit s'affiche correctement sans la feuille de style de l'éditeur.
+    var IMAGE_ALIGNS = [
+        ['inline', 'imageInline', 'Dans le texte', {}],
+        ['left', 'imageLeft', 'Habillage à gauche', { 'float': 'left', margin: '0.3em 1.5em 0.8em 0' }],
+        ['center', 'imageCenter', 'Centrée, seule sur sa ligne', { display: 'block', margin: '0.8em auto' }],
+        ['right', 'imageRight', 'Habillage à droite', { 'float': 'right', margin: '0.3em 0 0.8em 1.5em' }]
+    ];
+
+    Editor.prototype.buildImageToolbar = function () {
+        var self = this;
+        var bar = el('div', { 'class': 'wysiwys-image-toolbar', role: 'toolbar', 'aria-label': 'Image', hidden: '' });
+
+        var view = el('div', { 'class': 'wysiwys-image-view' });
+        var altButton = el('button', {
+            type: 'button', 'class': 'wysiwys-btn wysiwys-alt-btn',
+            title: 'Texte alternatif', 'aria-label': 'Texte alternatif'
+        }, 'ALT');
+        altButton.addEventListener('click', function () { self.openAltEditor(); });
+        view.appendChild(altButton);
+        view.appendChild(el('span', { 'class': 'wysiwys-image-sep' }));
+
+        this.alignButtons = {};
+        IMAGE_ALIGNS.forEach(function (align) {
+            var button = el('button', {
+                type: 'button', 'class': 'wysiwys-btn', title: align[2], 'aria-label': align[2]
+            }, icon(align[1]));
+            button.addEventListener('click', function () { self.alignImage(align[0]); });
+            self.alignButtons[align[0]] = button;
+            view.appendChild(button);
+        });
+
+        var form = el('div', { 'class': 'wysiwys-image-alt', hidden: '' });
+        this.altInput = el('input', {
+            type: 'text', 'class': 'wysiwys-alt-input', placeholder: 'Décrire l’image…',
+            'aria-label': 'Texte alternatif'
+        });
+        var save = el('button', { type: 'button', 'class': 'wysiwys-btn', title: 'Valider', 'aria-label': 'Valider' }, icon('check'));
+        var cancel = el('button', { type: 'button', 'class': 'wysiwys-btn', title: 'Annuler', 'aria-label': 'Annuler' }, icon('close'));
+        save.addEventListener('click', function () { self.closeAltEditor(true); });
+        cancel.addEventListener('click', function () { self.closeAltEditor(false); });
+        this.altInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); self.closeAltEditor(true); }
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); self.closeAltEditor(false); }
+        });
+        form.appendChild(this.altInput);
+        form.appendChild(save);
+        form.appendChild(cancel);
+
+        bar.appendChild(view);
+        bar.appendChild(form);
+
+        // Les boutons ne doivent pas voler la sélection de l'image ; le champ, si.
+        bar.addEventListener('mousedown', function (e) {
+            if (e.target !== self.altInput) e.preventDefault();
+        });
+
+        this.container.appendChild(bar);
+        this.imageToolbar = bar;
+        this.imageToolbarView = view;
+        this.imageToolbarAlt = form;
+    };
+
+    Editor.prototype.imageAlign = function (img) {
+        if (img.style.float === 'left' || img.style.float === 'right') return img.style.float;
+        return img.style.display === 'block' ? 'center' : 'inline';
+    };
+
+    // Largeur disponible pour l'image dans son bloc, marges latérales déduites.
+    Editor.prototype.imageMaxWidth = function (img) {
+        var block = closest(img.parentNode, 'p,h1,h2,h3,h4,h5,h6,blockquote,div,li', this.editable) || this.editable;
+        var blockStyle = getComputedStyle(block);
+        var width = block.clientWidth - parseFloat(blockStyle.paddingLeft) - parseFloat(blockStyle.paddingRight);
+        if (this.imageAlign(img) !== 'center') {
+            var imgStyle = getComputedStyle(img);
+            width -= parseFloat(imgStyle.marginLeft) + parseFloat(imgStyle.marginRight);
+        }
+        return width;
+    };
+
+    Editor.prototype.alignImage = function (name) {
+        if (!this.image) return;
+        var img = this.image;
+        ['float', 'display', 'margin'].forEach(function (property) { img.style.removeProperty(property); });
+        IMAGE_ALIGNS.forEach(function (align) {
+            if (align[0] !== name) return;
+            Object.keys(align[3]).forEach(function (property) { img.style.setProperty(property, align[3][property]); });
+        });
+        if (!img.style.length) img.removeAttribute('style');
+        // Les marges de l'habillage peuvent faire déborder une image pleine largeur.
+        var maxWidth = Math.floor(this.imageMaxWidth(img));
+        if (img.getBoundingClientRect().width > maxWidth) {
+            img.removeAttribute('height');
+            img.setAttribute('width', maxWidth);
+        }
+        this.positionImageFrame();
+        this.sync();
+    };
+
+    Editor.prototype.openAltEditor = function () {
+        if (!this.image) return;
+        this.altInput.value = this.image.getAttribute('alt') || '';
+        this.imageToolbarView.hidden = true;
+        this.imageToolbarAlt.hidden = false;
+        this.positionImageFrame();
+        this.altInput.focus();
+        this.altInput.select();
+    };
+
+    Editor.prototype.closeAltEditor = function (save) {
+        var img = this.image;
+        this.imageToolbarView.hidden = false;
+        this.imageToolbarAlt.hidden = true;
+        if (!img) return;
+        if (save) {
+            img.setAttribute('alt', this.altInput.value.trim());
+            this.sync();
+        }
+        this.editable.focus();
+        this.selectImage(img);
+    };
+
+    Editor.prototype.positionImageToolbar = function (box, rect) {
+        var bar = this.imageToolbar;
+        var align = this.imageAlign(this.image);
+        Object.keys(this.alignButtons).forEach(function (name) {
+            this.alignButtons[name].classList.toggle('is-active', name === align);
+        }, this);
+        this.imageToolbar.querySelector('.wysiwys-alt-btn')
+            .classList.toggle('is-missing', !this.image.getAttribute('alt'));
+
+        var gap = 8;
+        var left = rect.left - box.left - this.container.clientLeft + (rect.width - bar.offsetWidth) / 2;
+        left = Math.max(4, Math.min(left, this.container.clientWidth - bar.offsetWidth - 4));
+        var top = rect.top - box.top - this.container.clientTop - bar.offsetHeight - gap;
+        // Pas de place au-dessus (sous la barre d'outils principale) : on passe sous l'image.
+        if (top < this.toolbar.offsetTop + this.toolbar.offsetHeight) {
+            top = rect.bottom - box.top - this.container.clientTop + gap;
+        }
+        bar.style.left = left + 'px';
+        bar.style.top = top + 'px';
     };
 
     Editor.prototype.selectImage = function (img) {
@@ -827,6 +981,7 @@
         this.range = range.cloneRange();
         this.container.classList.add('is-image-selected');
         this.imageFrame.hidden = false;
+        this.imageToolbar.hidden = false;
         this.positionImageFrame();
     };
 
@@ -836,6 +991,9 @@
         this.container.classList.remove('is-image-selected');
         this.imageFrame.hidden = true;
         this.imageFrame.classList.remove('is-resizing');
+        this.imageToolbar.hidden = true;
+        this.imageToolbarView.hidden = false;
+        this.imageToolbarAlt.hidden = true;
     };
 
     Editor.prototype.positionImageFrame = function () {
@@ -852,6 +1010,7 @@
         style.width = rect.width + 'px';
         style.height = rect.height + 'px';
         this.imageSize.textContent = Math.round(rect.width) + ' × ' + Math.round(rect.height);
+        this.positionImageToolbar(box, rect);
     };
 
     Editor.prototype.startImageResize = function (e, corner) {
@@ -865,9 +1024,10 @@
         var startWidth = img.getBoundingClientRect().width;
         var block = closest(img.parentNode, 'p,h1,h2,h3,h4,h5,h6,blockquote,div,li', this.editable) || this.editable;
         var blockStyle = getComputedStyle(block);
-        var maxWidth = block.clientWidth - parseFloat(blockStyle.paddingLeft) - parseFloat(blockStyle.paddingRight);
+        var maxWidth = this.imageMaxWidth(img);
         // Une image centrée grandit des deux côtés : le pointeur ne parcourt que la moitié du chemin.
-        var factor = (corner === 'ne' || corner === 'se' ? 1 : -1) * (blockStyle.textAlign === 'center' ? 2 : 1);
+        var centered = this.imageAlign(img) === 'center' || (this.imageAlign(img) === 'inline' && blockStyle.textAlign === 'center');
+        var factor = (corner === 'ne' || corner === 'se' ? 1 : -1) * (centered ? 2 : 1);
 
         img.removeAttribute('height');
         handle.setPointerCapture(e.pointerId);

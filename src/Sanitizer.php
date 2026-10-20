@@ -40,6 +40,10 @@ class Sanitizer
         'color' => '/^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.%\s,\/]+\)|[a-z]+)$/',
         'margin-left' => '/^\d+(\.\d+)?(px|em|rem)$/',
         'padding-left' => '/^\d+(\.\d+)?(px|em|rem)$/',
+        // Alignement des images (habillage ou centrage).
+        'float' => '/^(left|right)$/',
+        'display' => '/^block$/',
+        'margin' => '/^(\d+(\.\d+)?(px|em|rem)?|auto)( (\d+(\.\d+)?(px|em|rem)?|auto)){0,3}$/',
     ];
 
     public static function clean(?string $html): string
