@@ -33,6 +33,7 @@
         exitFullscreen: '<path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/>',
         close: '<path d="M18 6 6 18M6 6l12 12"/>',
         check: '<path d="M20 6 9 17l-5-5"/>',
+        trash: '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/>',
         imageInline: '<rect width="10" height="8" x="7" y="8" rx="1"/><path d="M3 4h18M3 20h18M3 12h1M20 12h1"/>',
         imageLeft: '<rect width="9" height="9" x="3" y="4" rx="1"/><path d="M16 5h5M16 12h5M3 19h18"/>',
         imageCenter: '<rect width="10" height="9" x="7" y="4" rx="1"/><path d="M3 19h18"/>',
@@ -718,12 +719,13 @@
         var ok = actionButton('Insérer', true);
         ok.disabled = true;
         var dialog = this.dialog('Insérer une image', body, [cancel, ok]);
+        dialog.classList.add('is-large');
 
         function select(image) {
             selected = image;
             ok.disabled = !image;
-            Array.prototype.forEach.call(gallery.children, function (item) {
-                item.classList.toggle('is-selected', image && item.dataset.url === image.url);
+            Array.prototype.forEach.call(gallery.querySelectorAll('.wysiwys-thumb'), function (item) {
+                item.classList.toggle('is-selected', !!image && item.dataset.url === image.url);
             });
             status.textContent = image ? image.name : '';
         }
@@ -765,12 +767,37 @@
                     item.appendChild(img);
                     item.addEventListener('click', function () { select(image); });
                     item.addEventListener('dblclick', function () { select(image); insert(); });
-                    gallery.appendChild(item);
+                    var remove = el('button', {
+                        type: 'button', 'class': 'wysiwys-thumb-delete',
+                        title: 'Supprimer du serveur', 'aria-label': 'Supprimer ' + image.name
+                    }, icon('trash'));
+                    remove.addEventListener('click', function () { destroy(image, wrapper); });
+                    var wrapper = el('div', { 'class': 'wysiwys-thumb-item' });
+                    wrapper.appendChild(item);
+                    wrapper.appendChild(remove);
+                    gallery.appendChild(wrapper);
                 });
                 if (selected) select(selected);
             }).catch(function (error) {
                 gallery.dataset.loaded = '';
                 gallery.innerHTML = '';
+                status.textContent = error.message;
+                status.classList.add('is-error');
+            });
+        }
+
+        function destroy(image, wrapper) {
+            if (!window.confirm('Supprimer définitivement « ' + image.name + ' » du serveur ?\n' +
+                'Les contenus qui l’utilisent afficheront une image cassée.')) return;
+            status.classList.remove('is-error');
+            self.request('DELETE', self.options.imagesUrl + '/' + encodeURIComponent(image.name)).then(function () {
+                wrapper.remove();
+                if (selected && selected.url === image.url) select(null);
+                status.textContent = 'Image supprimée : ' + image.name;
+                if (!gallery.querySelector('.wysiwys-thumb')) {
+                    gallery.innerHTML = '<p class="wysiwys-status">Aucune image sur le serveur.</p>';
+                }
+            }).catch(function (error) {
                 status.textContent = error.message;
                 status.classList.add('is-error');
             });

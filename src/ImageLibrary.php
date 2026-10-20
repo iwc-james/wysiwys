@@ -66,4 +66,22 @@ class ImageLibrary
 
         return $name;
     }
+
+    /**
+     * Supprime une image du dossier. Seuls les noms de fichier simples avec une
+     * extension autorisée sont acceptés (pas de chemin, pas de « .. »).
+     */
+    public function delete(string $name): bool
+    {
+        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+        if ($name !== basename($name)
+            || str_starts_with($name, '.')
+            || ! in_array($extension, config('wysiwys.extensions'), true)
+            || ! File::isFile($this->path($name))) {
+            return false;
+        }
+
+        return File::delete($this->path($name));
+    }
 }

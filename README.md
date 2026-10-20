@@ -5,7 +5,7 @@
 - Niveaux (paragraphe, titres 1 à 4, citation), gras, italique
 - Listes à puces / numérotées, alignements, retraits
 - Liens (ajout, modification, suppression), séparateur, couleur du texte
-- Images : envoi depuis l'ordinateur, choix parmi les images du serveur, collage et glisser-déposer
+- Images : envoi depuis l'ordinateur, choix parmi les images du serveur (avec suppression), collage et glisser-déposer
 - Redimensionnement des images à la souris via des poignées d'angle (double-clic sur une poignée : taille d'origine)
 - Plein écran, aperçu
 - Les images sont écrites **directement dans `public/`** : pas besoin de `php artisan storage:link`
@@ -94,7 +94,7 @@ php artisan vendor:publish --tag=wysiwys-config
 'max_size'     => 5120,                // Ko
 'extensions'   => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
 'route_prefix' => 'wysiwys',
-'middleware'   => ['web', 'auth'],     // qui peut envoyer / lister les images
+'middleware'   => ['web', 'auth'],     // qui peut envoyer / lister / supprimer les images
 ```
 
 Le dossier peut aussi être défini par `WYSIWYS_DIRECTORY` dans le `.env`.
@@ -102,7 +102,8 @@ Le dossier peut aussi être défini par `WYSIWYS_DIRECTORY` dans le `.env`.
 > Si `public/storage` est déjà un lien symbolique vers `storage/app/public`, les images y atterrissent
 > aussi : ça fonctionne de la même façon.
 
-Pour réserver l'upload aux administrateurs, ajoute ton propre middleware : `['web', 'auth', 'can:admin']`.
+La suppression d'une image depuis la galerie est définitive : les contenus qui l'utilisent afficheront
+une image cassée. Pour réserver l'upload et la suppression aux administrateurs, ajoute ton propre middleware : `['web', 'auth', 'can:admin']`.
 
 Pour modifier le HTML du composant : `php artisan vendor:publish --tag=wysiwys-views`.
 

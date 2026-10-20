@@ -368,6 +368,11 @@ html.wysiwys-lock {
 /* ----- Dialogues ----- */
 
 .wysiwys-dialog {
+    /* Centrage explicite : certains resets CSS (Tailwind…) remettent margin à 0. */
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    height: fit-content;
     width: min(520px, calc(100vw - 32px));
     max-height: calc(100vh - 48px);
     padding: 0;
@@ -376,6 +381,10 @@ html.wysiwys-lock {
     background: var(--wysiwys-bg);
     color: var(--wysiwys-text);
     box-shadow: 0 20px 50px rgba(15, 23, 42, .3);
+}
+
+.wysiwys-dialog.is-large {
+    width: min(760px, calc(100vw - 32px));
 }
 
 .wysiwys-dialog.is-wide {
@@ -522,13 +531,19 @@ html.wysiwys-lock {
 
 .wysiwys-gallery {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-    gap: 8px;
-    max-height: 300px;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    max-height: min(480px, calc(100vh - 360px));
+    min-height: 160px;
     overflow-y: auto;
 }
 
+.wysiwys-thumb-item {
+    position: relative;
+}
+
 .wysiwys-thumb {
+    width: 100%;
     aspect-ratio: 1;
     padding: 0;
     overflow: hidden;
@@ -547,6 +562,45 @@ html.wysiwys-lock {
 
 .wysiwys-thumb.is-selected {
     border-color: var(--wysiwys-accent);
+}
+
+.wysiwys-thumb-delete {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: rgba(15, 23, 42, .65);
+    color: #fff;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s;
+}
+
+.wysiwys-thumb-delete svg {
+    width: 15px;
+    height: 15px;
+}
+
+.wysiwys-thumb-item:hover .wysiwys-thumb-delete,
+.wysiwys-thumb-delete:focus-visible {
+    opacity: 1;
+}
+
+.wysiwys-thumb-delete:hover {
+    background: var(--wysiwys-error, #dc2626);
+}
+
+@media (hover: none) {
+    .wysiwys-thumb-delete {
+        opacity: 1;
+    }
 }
 
 .wysiwys-status {
