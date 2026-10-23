@@ -15,6 +15,7 @@
 
     var ICONS = {
         bold: '<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/>',
+        underline: '<path d="M6 4v6a6 6 0 0 0 12 0V4M4 20h16"/>',
         italic: '<path d="M19 4h-9M14 20H5M15 4 9 20"/>',
         ul: '<path d="M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13"/>',
         ol: '<path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
@@ -64,11 +65,12 @@
     ];
 
     // Groupes séparés par « | ».
-    var DEFAULT_TOOLBAR = 'block | bold italic | ul ol | alignLeft alignCenter alignRight | outdent indent | ' +
+    var DEFAULT_TOOLBAR = 'block | bold underline italic | ul ol | alignLeft alignCenter alignRight | outdent indent | ' +
         'link unlink | color hr image | preview fullscreen';
 
     var BUTTONS = {
         bold: { title: 'Gras (Ctrl+B)', state: 'bold', run: function (ed) { ed.exec('bold'); } },
+        underline: { title: 'Souligné (Ctrl+U)', state: 'underline', run: function (ed) { ed.exec('underline'); } },
         italic: { title: 'Italique (Ctrl+I)', state: 'italic', run: function (ed) { ed.exec('italic'); } },
         ul: { title: 'Liste à puces', state: 'insertUnorderedList', run: function (ed) { ed.exec('insertUnorderedList'); } },
         ol: { title: 'Liste numérotée', state: 'insertOrderedList', run: function (ed) { ed.exec('insertOrderedList'); } },

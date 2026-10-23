@@ -58,7 +58,7 @@ Barre d'outils réduite, groupes séparés par `|` :
 <x-wysiwys name="intro" toolbar="block | bold italic | link unlink" />
 ```
 
-Boutons disponibles : `block bold italic ul ol alignLeft alignCenter alignRight outdent indent link unlink color hr image preview fullscreen`.
+Boutons disponibles : `block bold underline italic ul ol alignLeft alignCenter alignRight outdent indent link unlink color hr image preview fullscreen`.
 
 ## Sécurité : nettoyer le HTML
 
