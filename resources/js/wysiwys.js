@@ -24,6 +24,8 @@
         alignRight: '<path d="M21 6H3M21 12H9M21 18H7"/>',
         link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
         unlink: '<path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71"/><path d="M8 2v3M2 8h3M16 19v3M19 16h3"/>',
+        table: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+        chevron: '<path d="m6 9 6 6 6-6"/>',
         hr: '<path d="M3 12h18"/><path d="M8 6h8M8 18h8" opacity=".35"/>',
         color: '<path d="m6 16 6-12 6 12M8 12h8"/>',
         outdent: '<path d="M21 6H11M21 12H11M21 18H11M7 8l-4 4 4 4"/>',
@@ -64,9 +66,12 @@
         '#16a34a', '#0891b2', '#2563eb', '#7c3aed', '#c026d3', '#db2777'
     ];
 
+    // Taille de la grille de choix d'un tableau : elle s'agrandit au survol jusqu'au maximum.
+    var TABLE_GRID = { min: 5, max: 10 };
+
     // Groupes séparés par « | ».
     var DEFAULT_TOOLBAR = 'block | bold underline italic | ul ol | alignLeft alignCenter alignRight | outdent indent | ' +
-        'link unlink | color hr image | preview fullscreen';
+        'link unlink | color table hr image | preview fullscreen';
 
     var BUTTONS = {
         bold: { title: 'Gras (Ctrl+B)', state: 'bold', run: function (ed) { ed.exec('bold'); } },
@@ -81,6 +86,7 @@
         indent: { title: 'Augmenter le retrait', run: function (ed) { ed.indent(1); } },
         link: { title: 'Insérer un lien (Ctrl+K)', run: function (ed) { ed.openLinkDialog(); } },
         unlink: { title: 'Supprimer le lien', run: function (ed) { ed.removeLink(); } },
+        table: { title: 'Insérer un tableau', run: function (ed, button) { ed.toggleTableMenu(button); } },
         hr: { title: 'Insérer un séparateur', run: function (ed) { ed.insertSeparator(); } },
         color: { title: 'Couleur du texte', run: function (ed, button) { ed.toggleColorMenu(button); } },
         image: { title: 'Insérer une image', run: function (ed) { ed.openImageDialog(); } },
@@ -93,7 +99,7 @@
     /* ------------------------------------------------------------------ */
 
     var TAGS = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'strong', 'b', 'em',
-        'i', 'u', 's', 'span', 'a', 'br', 'hr', 'ul', 'ol', 'li', 'img'];
+        'i', 'u', 's', 'span', 'a', 'br', 'hr', 'ul', 'ol', 'li', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td'];
     var DROP = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select',
         'option', 'meta', 'link', 'title', 'head', 'svg', 'math', 'noscript', 'template'];
     var ATTRIBUTES = { a: ['href', 'target', 'title'], img: ['src', 'alt', 'title', 'width', 'height'], ol: ['start'] };
@@ -243,6 +249,10 @@
                     if (name === 'color') {
                         button.appendChild(el('span', { 'class': 'wysiwys-color-bar' }));
                     }
+                    if (name === 'table') {
+                        button.classList.add('wysiwys-btn-menu');
+                        button.insertAdjacentHTML('beforeend', icon('chevron'));
+                    }
                     self.buttons[name] = button;
                     groupEl.appendChild(button);
                 }
@@ -363,6 +373,9 @@
         document.addEventListener('click', function (e) {
             if (self.colorMenu && !self.colorMenu.contains(e.target) && !e.target.closest('[data-action="color"]')) {
                 self.closeColorMenu();
+            }
+            if (self.tableMenu && !self.tableMenu.contains(e.target) && !e.target.closest('[data-action="table"]')) {
+                self.closeTableMenu();
             }
         });
     };
@@ -505,6 +518,78 @@
         if (this.buttons.color) this.buttons.color.querySelector('.wysiwys-color-bar').style.background = color;
         this.exec('foreColor', color);
         this.closeColorMenu();
+    };
+
+    /* ----- Tableau ----- */
+
+    Editor.prototype.toggleTableMenu = function (button) {
+        if (this.tableMenu) {
+            this.closeTableMenu();
+            return;
+        }
+        var self = this;
+        var menu = el('div', { 'class': 'wysiwys-popover', role: 'menu' });
+        var grid = el('div', { 'class': 'wysiwys-table-grid' });
+        var label = el('div', { 'class': 'wysiwys-table-size' }, '&nbsp;');
+        var size = TABLE_GRID.min;
+
+        // Redessine la grille et surligne les cases jusqu'à (cols, rows).
+        function render(cols, rows) {
+            size = Math.min(TABLE_GRID.max, Math.max(TABLE_GRID.min, cols + 1, rows + 1));
+            grid.style.gridTemplateColumns = 'repeat(' + size + ', 18px)';
+            while (grid.childNodes.length < size * size) {
+                var cell = el('button', { type: 'button', 'class': 'wysiwys-table-cell' });
+                cell.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                grid.appendChild(cell);
+            }
+            while (grid.childNodes.length > size * size) grid.lastChild.remove();
+            Array.prototype.forEach.call(grid.childNodes, function (cell, index) {
+                var col = index % size + 1;
+                var row = Math.floor(index / size) + 1;
+                cell.dataset.cols = col;
+                cell.dataset.rows = row;
+                cell.setAttribute('aria-label', col + ' x ' + row);
+                cell.classList.toggle('is-active', col <= cols && row <= rows);
+            });
+            label.textContent = cols && rows ? cols + ' x ' + rows : '\u00a0';
+        }
+
+        function cellOf(e) {
+            return e.target.closest('.wysiwys-table-cell');
+        }
+
+        grid.addEventListener('mouseover', function (e) {
+            var cell = cellOf(e);
+            if (cell) render(+cell.dataset.cols, +cell.dataset.rows);
+        });
+        grid.addEventListener('focusin', function (e) {
+            var cell = cellOf(e);
+            if (cell) render(+cell.dataset.cols, +cell.dataset.rows);
+        });
+        grid.addEventListener('click', function (e) {
+            var cell = cellOf(e);
+            if (cell) self.insertTable(+cell.dataset.cols, +cell.dataset.rows);
+        });
+
+        render(0, 0);
+        menu.appendChild(grid);
+        menu.appendChild(label);
+
+        button.parentNode.style.position = 'relative';
+        menu.style.left = button.offsetLeft + 'px';
+        button.parentNode.appendChild(menu);
+        this.tableMenu = menu;
+    };
+
+    Editor.prototype.closeTableMenu = function () {
+        if (this.tableMenu) this.tableMenu.remove();
+        this.tableMenu = null;
+    };
+
+    Editor.prototype.insertTable = function (cols, rows) {
+        var row = '<tr>' + new Array(cols + 1).join('<td><br></td>') + '</tr>';
+        this.closeTableMenu();
+        this.insertHtml('<table><tbody>' + new Array(rows + 1).join(row) + '</tbody></table><p><br></p>');
     };
 
     /* ----- Dialogues ----- */

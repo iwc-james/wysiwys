@@ -17,7 +17,7 @@ class Sanitizer
     public const TAGS = [
         'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code',
         'strong', 'b', 'em', 'i', 'u', 's', 'span', 'a', 'br', 'hr',
-        'ul', 'ol', 'li', 'img',
+        'ul', 'ol', 'li', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
     ];
 
     /** Balises supprimées avec tout leur contenu. */

@@ -8,7 +8,8 @@ it('garde le HTML produit par l’éditeur', function () {
         .'<p style="margin-left: 4em;"><a href="https://exemple.fr" target="_blank" rel="noopener noreferrer">lien</a></p>'
         .'<img src="/storage/wysiwys/a.png" alt="A"><p><img src="/storage/wysiwys/b.png" alt="" width="320"></p>'
         .'<p><img src="/storage/wysiwys/c.png" alt="C" style="float: left; margin: 0.3em 1.5em 0.8em 0px;">texte</p>'
-        .'<p><img src="/storage/wysiwys/d.png" alt="D" style="display: block; margin: 0.8em auto;"></p>';
+        .'<p><img src="/storage/wysiwys/d.png" alt="D" style="display: block; margin: 0.8em auto;"></p>'
+        .'<table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td><br></td></tr></tbody></table>';
 
     expect(Sanitizer::clean($html))->toBe($html);
 });
