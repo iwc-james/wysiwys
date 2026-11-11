@@ -422,9 +422,145 @@
         this.restoreSelection();
         document.execCommand('styleWithCSS', false, command === 'foreColor');
         document.execCommand('defaultParagraphSeparator', false, 'p');
+        // Chrome renvoie le curseur au début de l'élément quand il crée ou défait une liste.
+        var caret = /^insert(un)?orderedlist$/i.test(command) ? this.caretOffset() : null;
         document.execCommand(command, false, value === undefined ? null : value);
+        this.unwrapLists();
+        if (caret !== null) this.setCaretOffset(caret);
         this.sync();
         this.refreshState();
+    };
+
+    // Bornes de la sélection sous forme de nœuds et d'offsets : contrairement à un
+    // Range vivant, elles survivent au déplacement des nœuds qui les contiennent.
+    Editor.prototype.saveSelection = function () {
+        var selection = window.getSelection();
+        if (!selection.rangeCount) return null;
+        var range = selection.getRangeAt(0);
+        return [range.startContainer, range.startOffset, range.endContainer, range.endOffset];
+    };
+
+    Editor.prototype.loadSelection = function (bounds) {
+        if (!bounds || !this.editable.contains(bounds[0]) || !this.editable.contains(bounds[2])) return;
+        var range = document.createRange();
+        try {
+            range.setStart(bounds[0], bounds[1]);
+            range.setEnd(bounds[2], bounds[3]);
+        } catch (e) {
+            return; // offsets devenus invalides
+        }
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    };
+
+    // Position du curseur en caractères depuis le début de son bloc : elle survit
+    // aux commandes qui recréent les nœuds texte. null si la sélection n'est pas vide.
+    var CARET_BLOCKS = 'p,li,h1,h2,h3,h4,h5,h6,blockquote,div,td,th';
+
+    Editor.prototype.caretOffset = function () {
+        var selection = window.getSelection();
+        if (!selection.rangeCount || !selection.isCollapsed) return null;
+        var range = selection.getRangeAt(0);
+        var block = closest(range.startContainer, CARET_BLOCKS, this.editable) || this.editable;
+        var before = document.createRange();
+        before.selectNodeContents(block);
+        before.setEnd(range.startContainer, range.startOffset);
+        return before.toString().length;
+    };
+
+    Editor.prototype.setCaretOffset = function (offset) {
+        var selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        var block = closest(selection.getRangeAt(0).startContainer, CARET_BLOCKS, this.editable);
+        if (!block) return;
+        var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+        var node;
+        while ((node = walker.nextNode())) {
+            if (offset <= node.data.length) {
+                var range = document.createRange();
+                range.setStart(node, offset);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return;
+            }
+            offset -= node.data.length;
+        }
+    };
+
+    // Chrome crée <p><ul>…</ul></p> quand on transforme un paragraphe (ou un
+    // titre) en liste. Une liste ne peut pas vivre dans un <p> : une fois
+    // enregistré, le HTML est ré-analysé en <p></p><ul>…</ul><p></p>. On sort
+    // donc la liste du bloc, en gardant de part et d'autre le contenu qui l'entourait.
+    // À l'inverse, défaire la liste laisse du texte nu à la racine : on le remet
+    // dans un <p>.
+    Editor.prototype.unwrapLists = function () {
+        var editable = this.editable;
+        var lists = editable.querySelectorAll(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map(function (tag) {
+            return tag + ' > ul, ' + tag + ' > ol';
+        }).join(', '));
+        var loose = Array.prototype.some.call(editable.childNodes, isLoose);
+        if (!lists.length && !loose) return;
+
+        // Déplacer un nœud réinitialise la sélection qu'il contient.
+        var bounds = this.saveSelection();
+
+        Array.prototype.forEach.call(lists, function (list) {
+            var p = list.parentNode;
+            var after = p.cloneNode(false);
+            while (list.nextSibling) after.appendChild(list.nextSibling);
+            p.parentNode.insertBefore(list, p.nextSibling);
+            if (!isEmpty(after)) list.parentNode.insertBefore(after, list.nextSibling);
+            // Le <br> qui séparait la ligne de la liste n'a plus de raison d'être.
+            if (p.lastChild && p.lastChild.nodeName === 'BR' && p.childNodes.length > 1) p.removeChild(p.lastChild);
+            if (isEmpty(p)) p.remove();
+            // Plusieurs paragraphes convertis d'un coup donnent des listes voisines.
+            var next = list.nextElementSibling;
+            if (sameList(next, list)) {
+                while (next.firstChild) list.appendChild(next.firstChild);
+                next.remove();
+            }
+            var previous = list.previousElementSibling;
+            if (sameList(previous, list)) {
+                while (list.firstChild) previous.appendChild(list.firstChild);
+                list.remove();
+            }
+        });
+
+        var node = editable.firstChild;
+        while (node) {
+            if (!isLoose(node)) { node = node.nextSibling; continue; }
+            // Une ligne par paragraphe : à la racine, chaque <br> séparait deux lignes.
+            var p = document.createElement('p');
+            editable.insertBefore(p, node);
+            while (node && isLoose(node)) {
+                var next = node.nextSibling;
+                if (node.nodeName === 'BR') {
+                    // Ligne vide : le <br> reste pour lui donner sa hauteur.
+                    if (p.firstChild) node.remove(); else p.appendChild(node);
+                    p = document.createElement('p');
+                    editable.insertBefore(p, next);
+                } else {
+                    p.appendChild(node);
+                }
+                node = next;
+            }
+            if (!p.firstChild) p.remove();
+        }
+
+        this.loadSelection(bounds);
+
+        function isEmpty(element) {
+            return !element.textContent.trim() && !element.querySelector('img,table,hr');
+        }
+        function sameList(other, list) {
+            return other && other.nodeName === list.nodeName && !other.getAttribute('style') && !list.getAttribute('style');
+        }
+        function isLoose(child) {
+            if (child.nodeType === 3) return child.data.trim() !== '';
+            return child.nodeType === 1 && (child.nodeName === 'BR' || getComputedStyle(child).display === 'inline');
+        }
     };
 
     Editor.prototype.insertHtml = function (html) {
