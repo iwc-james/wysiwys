@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "workbench",
-      "runtimeExecutable": "vendor/bin/testbench",
-      "runtimeArgs": ["serve", "--host=127.0.0.1", "--port=8123"],
+      "runtimeExecutable": "/usr/bin/php",
+      "runtimeArgs": ["vendor/bin/testbench", "serve", "--host=127.0.0.1", "--port=8123"],
       "port": 8123,
       "url": "http://127.0.0.1:8123"
     }
