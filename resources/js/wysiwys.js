@@ -303,6 +303,7 @@
         });
 
         this.editable.addEventListener('input', function () {
+            self.anchorFloatingImages();
             self.sync();
             self.positionImageFrame();
         });
@@ -385,6 +386,7 @@
     Editor.prototype.setHtml = function (html) {
         this.deselectImage();
         this.editable.innerHTML = clean(html);
+        this.anchorFloatingImages();
         this.sync();
     };
 
@@ -1010,6 +1012,25 @@
         return img.style.display === 'block' ? 'center' : 'inline';
     };
 
+    // Un flottant se place sur la ligne où il apparaît : si du texte le précède
+    // et remplit la ligne, l'image descend sous ce texte au lieu de l'habiller.
+    // Chrome met justement le curseur avant l'image quand on clique à côté.
+    // On ramène donc chaque image flottante au début de sa ligne (début du bloc
+    // ou juste après un <br>). La sélection, vivante, suit le déplacement.
+    Editor.prototype.anchorFloatingImages = function () {
+        var images = this.editable.querySelectorAll('img');
+        for (var i = 0; i < images.length; i++) {
+            var img = images[i];
+            if (img.style.float !== 'left' && img.style.float !== 'right') continue;
+            var target = null;
+            for (var prev = img.previousSibling; prev; prev = prev.previousSibling) {
+                if (prev.nodeName === 'BR' || (prev.nodeType === 1 && getComputedStyle(prev).display !== 'inline')) break;
+                target = prev;
+            }
+            if (target) img.parentNode.insertBefore(img, target);
+        }
+    };
+
     // Largeur disponible pour l'image dans son bloc, marges latérales déduites.
     Editor.prototype.imageMaxWidth = function (img) {
         var block = closest(img.parentNode, 'p,h1,h2,h3,h4,h5,h6,blockquote,div,li', this.editable) || this.editable;
@@ -1031,6 +1052,7 @@
             Object.keys(align[3]).forEach(function (property) { img.style.setProperty(property, align[3][property]); });
         });
         if (!img.style.length) img.removeAttribute('style');
+        this.anchorFloatingImages();
         // Les marges de l'habillage peuvent faire déborder une image pleine largeur.
         var maxWidth = Math.floor(this.imageMaxWidth(img));
         if (img.getBoundingClientRect().width > maxWidth) {
